@@ -1,3 +1,4 @@
+import sys
 import tkinter as tk
 
 window = tk.Tk()
@@ -25,30 +26,50 @@ display.pack(
     ipady=20
 )
 
-def validate_input(event):
-    if event.char.isdigit() or event.keysym in (
-        "BackSpace", "Delete", "Left", "Right"
-    ):
+MOD_MASK = 0x8 if sys.platform == "darwin" else 0x4
+ALLOWED_CHARS = "0123456789.+-*/"
+
+def block_keys(event):
+    if event.keysym.isdigit() or event.keysym.startswith("KP_"):
+        return "break"
+    if event.state & MOD_MASK and event.keysym.lower() in ("c", "a", "v"):
         return None
     return "break"
 
-def sync_expression(event):
-    global expression
-    expression = display.get()
+def update_display():
+    display.delete(0, tk.END)
+    display.insert(tk.END, expression)
 
-display.bind("<Key>", validate_input)
-display.bind("<KeyRelease>", sync_expression)
+def paste(event=None):
+    global expression
+    try:
+        text = window.clipboard_get()
+    except tk.TclError:
+        return "break"
+    text = "".join(ch for ch in text if ch in ALLOWED_CHARS)
+    if text:
+        expression += text
+        update_display()
+    return "break"
+
+display.bind("<Key>", block_keys)
+display.bind("<<Paste>>", paste)
+display.bind("<<PasteSelection>>", lambda e: "break")
 
 def button_click(value):
     global expression
     expression += str(value)
-    display.delete(0, tk.END)
-    display.insert(tk.END, expression)
+    update_display()
 
 def clear():
     global expression
     expression = ""
-    display.delete(0, tk.END)
+    update_display()
+
+def backspace():
+    global expression
+    expression = expression[:-1]
+    update_display()
 
 def calculate():
     global expression
@@ -96,7 +117,28 @@ clear_button = tk.Button(
 clear_button.grid(
     row=0,
     column=0,
-    columnspan=4,
+    columnspan=2,
+    sticky="nsew",
+    padx=4,
+    pady=4
+)
+
+backspace_button = tk.Button(
+    button_frame,
+    text="⌫",
+    font=("Arial", 18, "bold"),
+    bg="#417a9b",
+    fg="white",
+    activebackground="#5a9cc0",
+    activeforeground="white",
+    bd=0,
+    command=backspace
+)
+
+backspace_button.grid(
+    row=0,
+    column=2,
+    columnspan=2,
     sticky="nsew",
     padx=4,
     pady=4
